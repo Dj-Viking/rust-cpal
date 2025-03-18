@@ -32,7 +32,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 	let stream_config: cpal::StreamConfig = cpal::StreamConfig {
 		sample_rate: cpal::SampleRate(44100),
 		channels: 2,
-		buffer_size: cpal::BufferSize::Fixed(4096)
+		// buffer_size: cpal::BufferSize::Fixed(4096)
+		buffer_size: cpal::BufferSize::Default
 	};
 	println!("stream_config {:#?}", stream_config);
 	println!("---------------------------");
