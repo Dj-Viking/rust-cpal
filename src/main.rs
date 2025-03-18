@@ -1,5 +1,5 @@
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
-use cpal::{FromSample, Sample};
+use cpal::{SampleFormat};
 
 use ringbuf::{
 	traits::{Consumer, Producer, Split},
@@ -17,23 +17,34 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 	let host = cpal::host_from_id(host_id)?;
 	let devs = host.devices()?;
 
+
 	let device = devs.into_iter().find(|d| d.name().unwrap().contains(DEVICE_NAME)).unwrap();
+	
+	println!("supported configs {:#?}", device.supported_input_configs().unwrap().collect::<Vec<_>>().into_iter().find(|s| {
+		s.channels() == 2 && s.sample_format() == SampleFormat::F32
+	}));
 
 	println!("---------------------------");
 	println!("selected device name - {}", device.name()?);
 	println!("---------------------------");
 
-	let input_config: cpal::StreamConfig = device.default_input_config()?.into();
-	let output_config: cpal::StreamConfig = device.default_output_config()?.into();
-	println!("input_config {:#?}", input_config);
+
+	let stream_config: cpal::StreamConfig = cpal::StreamConfig {
+		sample_rate: cpal::SampleRate(44100),
+		channels: 2,
+		buffer_size: cpal::BufferSize::Fixed(4096)
+	};
+	println!("stream_config {:#?}", stream_config);
 	println!("---------------------------");
-	println!("output_config {:#?}", output_config);
+	println!("stream_config {:#?}", stream_config);
 
 	// create delay in case input and output are not synced
-	const LATENCY: f32 = 32.0;
+	const LATENCY: f32 = 1000.0;
 	
-	let latency_frames = (LATENCY * 0.001) * input_config.sample_rate.0 as f32;
-	let latency_samples = latency_frames as usize * input_config.channels as usize;
+	let latency_frames = (LATENCY * 0.001) * stream_config.sample_rate.0 as f32;
+	println!("frames? {}", latency_frames);
+	let latency_samples = latency_frames as usize * stream_config.channels as usize;
+	println!("samples? {}", latency_samples);
 	
 	// create ring buffer to share samples
 	let ring_buffer = HeapRb::<f32>::new(latency_samples * 2);
@@ -76,28 +87,31 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 		}
 	};
 	
-	// Build the streams
-	
-	println!("attempt to build both streams with f32 samples and input config \n `{:?}`", input_config);
+	println!("attempt to build both streams with f32 samples and input config \n `{:?}`", stream_config);
 
-	let input_stream = device.build_input_stream(&input_config, input_data_fn, err_fn, None)?;
-	let output_stream = device.build_output_stream(&output_config, output_data_fn, err_fn, None)?;
+	let input_stream = device.build_input_stream(&stream_config, input_data_fn, err_fn, None)?;
+	let output_stream = device.build_output_stream(&stream_config, output_data_fn, err_fn, None)?;
 	println!("successfully built streams");
 
 	//play the streams
 	println!("starting the input and output streams with `{}` ms of latency", LATENCY);
 
-	input_stream.play()?;
-	output_stream.play()?;
+	let start_stream = || {
+		input_stream.play().unwrap();
+		output_stream.play().unwrap();
 
-	println!("playing streams for 100 seconds...");
+		println!("playing streams for 100 seconds...");
 
-	std::thread::sleep(std::time::Duration::from_secs(100));
+		std::thread::sleep(std::time::Duration::from_secs(100));
 
-	drop(input_stream);
-	drop(output_stream);
+		drop(input_stream);
+		drop(output_stream);
 
-	println!("done");
+		println!("done");
+
+	};
+
+	start_stream();
 
 	Ok(())
 }
