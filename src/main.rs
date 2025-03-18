@@ -37,7 +37,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 	};
 	println!("stream_config {:#?}", stream_config);
 	println!("---------------------------");
-	println!("stream_config {:#?}", stream_config);
 
 	// create delay in case input and output are not synced
 	const LATENCY: f32 = 1000.0;
