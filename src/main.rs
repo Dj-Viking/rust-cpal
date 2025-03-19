@@ -2,7 +2,9 @@ use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use cpal::{SampleFormat};
 
 use ringbuf::{
-	traits::{Consumer, Producer, Split},
+	traits::{Split},
+	traits::producer::Producer,
+	traits::consumer::Consumer,
 	HeapRb,
 };
 
@@ -39,7 +41,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 	println!("---------------------------");
 
 	// create delay in case input and output are not synced
-	const LATENCY: f32 = 1000.0;
+	const LATENCY: f32 = 50.0;
 	
 	let latency_frames = (LATENCY * 0.001) * stream_config.sample_rate.0 as f32;
 	println!("frames? {}", latency_frames);
@@ -59,7 +61,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 	let input_data_fn = move |data: &[f32], _: &cpal::InputCallbackInfo| {
 		let mut output_fell_behind = false;
-		println!("got sample data from input {:?}", data.len());
 		for &sample in data {
 			if producer.try_push(sample).is_err() {
 				output_fell_behind = true;
@@ -72,7 +73,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 	let output_data_fn = move |data: &mut [f32], _: &cpal::OutputCallbackInfo| {
 		let mut input_fell_behind = false;
-		println!("got sample data from output {:?}", data.len());
 		for sample in data {
 			*sample = match consumer.try_pop() {
 				Some(s) => s,
